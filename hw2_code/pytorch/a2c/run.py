@@ -1,12 +1,13 @@
 import sys
 import argparse
 import os
+import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['OMP_NUM_THREADS'] = '1'
 
 import gym
 
-from a2c import A2C
+from a2c import Reinforce, A2C
 from net import NeuralNet
 
 import numpy as np
@@ -46,6 +47,7 @@ def parse_a2c_arguments():
 
 
 def main_a2c(args):
+
     # Parse command-line arguments.
     args = parse_a2c_arguments()
     env_name = args.env_name
@@ -68,55 +70,25 @@ def main_a2c(args):
 
     gamma = 0.99
 
+    # defaults above this line  
+
     for i in tqdm.tqdm(range(num_seeds)):
         reward_means = []
 
         # TODO: create networks and setup reinforce/a2c
 
 
-
-        for m in range(num_episodes):
-            A2C_net.train(env, gamma=gamma)
-            if m % 100 == 0:
-                print("Episode: {}".format(m))
-                G = np.zeros(20)
-                for k in range(20):
-                    g = A2C_net.evaluate_policy(env)
-                    G[k] = g
-
-                reward_mean = G.mean()
-                reward_sd = G.std()
-                print("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
-                reward_means.append(reward_mean)
-        res[i] = np.array(reward_means)
-
-
-    ks = np.arange(l)*100
-    avs = np.mean(res, axis=0)
-    maxs = np.max(res, axis=0)
-    mins = np.min(res, axis=0)
-
-    plt.fill_between(ks, mins, maxs, alpha=0.1)
-    plt.plot(ks, avs, '-o', markersize=1)
-
-    plt.xlabel('Episode', fontsize = 15)
-    plt.ylabel('Return', fontsize = 15)
-
-    if not os.path.exists('./plots'):
-        os.mkdir('./plots')
+        Reinforce_net = Reinforce(nA)
         
-    if A2C_net.type == 'A2C':
-        plt.title("A2C Learning Curve for N = {}".format(args.n), fontsize = 24)
-        plt.savefig("./plots/a2c_curve_N={}.png".format(args.n))
-    elif A2C_net.type == 'Baseline':
-        plt.title("Baseline Reinforce Learning Curve".format(args.n), fontsize = 24)
-        plt.savefig("./plots/Baseline_Reinforce_curve.png".format(args.n))
-    else: # Reinforce
-        plt.title("Reinforce Learning Curve", fontsize = 24)
-        plt.savefig("./plots/Reinforce_curve.png")
-
+        # Insert code from handout.py below 
+        
 
 
 
 if __name__ == '__main__':
+
+    logfile = 'ac2.log'
+    loglevel = logging.WARNING
+    logging.basicConfig(filename=logfile, filemode='a', level=loglevel)
+    logging.info('\n-------------------- START --------------------')
     main_a2c(sys.argv)

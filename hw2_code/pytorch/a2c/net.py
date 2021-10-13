@@ -1,4 +1,6 @@
 import torch
+import logging
+logger = logging.getLogger(__name__)
 
 
 class NeuralNet(torch.nn.Module):
