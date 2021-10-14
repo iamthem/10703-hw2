@@ -11,8 +11,9 @@ set shortmess=aoO
 argglobal
 %argdel
 $argadd a2c.py
-edit a2c.py
+edit ac2.log
 argglobal
+balt run.py
 setlocal fdm=indent
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -21,18 +22,22 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=4
 setlocal fen
-let s:l = 8 - ((7 * winheight(0) + 20) / 41)
+let s:l = 3 - ((2 * winheight(0) + 19) / 38)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 8
+keepjumps 3
 normal! 0
 tabnext 1
-badd +6 a2c.py
-badd +2 net.py
-badd +1 run.py
+badd +1 ~/Notes/AI+ML/10703/hw2/hw2_code/pytorch/a2c
+badd +17 a2c.py
+badd +1 net.py
+badd +70 run.py
 badd +66 ~/Builds/gym/gym/spaces/box.py
 badd +90 ~/Builds/gym/gym/envs/classic_control/cartpole.py
+badd +6 playground.py
+badd +6 handout.py
+badd +3 ac2.log
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0 && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf
 endif

@@ -1,6 +1,6 @@
 
         for m in range(num_episodes):
-            A2C_net.train(env, gamma=gamma)
+            Reinforce_net.train(env, gamma=gamma)
             if m % 100 == 0:
                 print("Episode: {}".format(m))
                 G = np.zeros(20)
@@ -13,7 +13,7 @@
                 print("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
                 reward_means.append(reward_mean)
         res[i] = np.array(reward_means)
-    ks = np.arange(l)*100
+    ks = np.arange(frozen_pi_per_trial)*100
     avs = np.mean(res, axis=0)
     maxs = np.max(res, axis=0)
     mins = np.min(res, axis=0)

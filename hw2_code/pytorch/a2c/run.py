@@ -2,6 +2,7 @@ import sys
 import argparse
 import os
 import logging
+import torch
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['OMP_NUM_THREADS'] = '1'
 
@@ -65,20 +66,21 @@ def main_a2c(args):
 
     # Plot average performance of 5 trials
     num_seeds = 5
-    l = num_episodes//100
-    res = np.zeros((num_seeds, l))
+    frozen_pi_per_trial = num_episodes//100
+    res = np.zeros((num_seeds, frozen_pi_per_trial))
 
     gamma = 0.99
 
-    # defaults above this line  
+    ## defaults above this line  
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     for i in tqdm.tqdm(range(num_seeds)):
         reward_means = []
 
         # TODO: create networks and setup reinforce/a2c
 
-
-        Reinforce_net = Reinforce(nA)
+        Reinforce_net = Reinforce(nA, device)
         
         # Insert code from handout.py below 
         
