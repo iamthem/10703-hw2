@@ -88,7 +88,9 @@ def main_a2c(args):
 if __name__ == '__main__':
 
     logfile = 'ac2.log'
-    loglevel = logging.WARNING
-    logging.basicConfig(filename=logfile, filemode='a', level=loglevel)
-    logging.info('\n-------------------- START --------------------')
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(logfile, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    logger.addHandler(fh)
     main_a2c(sys.argv)

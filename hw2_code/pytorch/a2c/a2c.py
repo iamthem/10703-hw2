@@ -11,7 +11,7 @@ class Reinforce(object):
     def __init__(self, nA, baseline=False):
         self.type = "Baseline" if baseline else "Reinforce"
         self.nA = nA
-        logger.debug('Type is ', self.type)
+        logger.debug('Type is %s', self.type)
 
     def evaluate_policy(self, env):
         # TODO: Compute Accumulative trajectory reward(set a trajectory length threshold if you want)

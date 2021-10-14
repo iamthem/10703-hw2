@@ -9,3 +9,4 @@ F21_hw2_submission.xdv
 .DS_Store
 tags
 **log
+**/__pycache__
