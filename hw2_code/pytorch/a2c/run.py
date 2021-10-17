@@ -81,7 +81,8 @@ def main_a2c(args):
         # TODO: create networks and setup reinforce/a2c
 
         Reinforce_net = Reinforce(nA, device)
-        
+        states, actions, rewards = Reinforce_net.train(env, gamma=gamma)
+        logger.debug('Number of actions is %d, Number of rewards is %d', torch.count_nonzero(actions), torch.count_nonzero(rewards))
         # Insert code from handout.py below 
         
 

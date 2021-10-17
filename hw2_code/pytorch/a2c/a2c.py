@@ -17,7 +17,6 @@ class Reinforce(object):
         # TODO How to init Network? Uncomment below
         # self.policy = NeuralNet()
 
-        logger.debug('Type is %s', self.type)
 
     def evaluate_policy(self, env):
         # TODO: Compute Accumulative trajectory reward(set a trajectory length threshold if you want)
@@ -29,12 +28,29 @@ class Reinforce(object):
         # - a list of states, indexed by time step
         # - a list of actions, indexed by time step
         # - a list of rewards, indexed by time step
+        state = env.reset()
+        
+        # init states, actions, rewards as tensor
+        # POSSIBLE BUG can states be length 201? Don't think so 
+        actions, rewards = torch.zeros((2, 200), device = self.device)
+        states = torch.zeros((200, 4), device = self.device)
         
         # TODO implement below loop 
-        # init states, actions, rewards as tensor
-            # For each episode append to tensor using torch.cat 
-        episode = None
-        return episode  
+        done = False
+        t = 0
+
+        while not done:
+
+            ## TODO how to call current policy?
+            action = env.action_space.sample()
+            new_state, reward, done, info = env.step(action)
+            states[t], actions[t], rewards[t] = torch.from_numpy(new_state), action, reward
+            state = new_state
+            t += 1
+
+        env.close()
+        return states, actions, rewards
+
 
     def train(self, env, gamma=0.99, n=10):
         # Trains the model on a single episode using REINFORCE or A2C/A3C.
@@ -42,6 +58,7 @@ class Reinforce(object):
         #       method generate_episode() to generate training data.
 
         states, actions, rewards = self.generate_episode(env)
+        return states, actions, rewards
         # for timesteps in episode:
             # Calculate G_t
 
