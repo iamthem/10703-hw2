@@ -82,7 +82,7 @@ def main_a2c(args):
 
         Reinforce_net = Reinforce(nA, device)
         G = Reinforce_net.train(env, gamma=gamma)
-        logger.debug('Final Contents of G = \n %s', str(G))
+        # logger.debug('Final Contents of G = \n %s', str(G))
         # Insert code from handout.py below 
         
 
