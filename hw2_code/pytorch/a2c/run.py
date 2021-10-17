@@ -78,11 +78,11 @@ def main_a2c(args):
     for i in tqdm.tqdm(range(num_seeds)):
         reward_means = []
 
-        # TODO: create networks and setup reinforce/a2c
+        # TODO: Review below output to make sure G_t is computed correctly 
 
         Reinforce_net = Reinforce(nA, device)
-        states, actions, rewards = Reinforce_net.train(env, gamma=gamma)
-        logger.debug('Number of actions is %d, Number of rewards is %d', torch.count_nonzero(actions), torch.count_nonzero(rewards))
+        G = Reinforce_net.train(env, gamma=gamma)
+        logger.debug('Final Contents of G = \n %s', str(G))
         # Insert code from handout.py below 
         
 
@@ -96,4 +96,5 @@ if __name__ == '__main__':
     fh = logging.FileHandler(logfile, mode = 'w')
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
+    torch.set_printoptions(precision = 3, edgeitems=2, linewidth=75)
     main_a2c(sys.argv)

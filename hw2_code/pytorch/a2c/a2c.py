@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import torch
 from net import NeuralNet
+from math import pow
 logger = logging.getLogger(__name__)
 
 class Reinforce(object):
@@ -49,7 +50,8 @@ class Reinforce(object):
             t += 1
 
         env.close()
-        return states, actions, rewards
+        T = torch.count_nonzero(rewards) 
+        return states[:T, :], actions[:T], torch.flatten(rewards[torch.nonzero(rewards)])
 
 
     def train(self, env, gamma=0.99, n=10):
@@ -58,9 +60,19 @@ class Reinforce(object):
         #       method generate_episode() to generate training data.
 
         states, actions, rewards = self.generate_episode(env)
-        return states, actions, rewards
-        # for timesteps in episode:
-            # Calculate G_t
+
+        # Calculate G_t 
+        # TODO Consider reward for final state / special cases for last state
+        T = len(rewards)
+        G = torch.zeros((T), device = self.device)
+        for t in range(T):
+            
+            # Potential slowdown (generating gammas at each iteration)
+            gammas = torch.tensor([pow(gamma, k - t) for k in range(t, T)], device = self.device)
+            logger.debug('gamma[%d] = %s', t, str(gammas))
+            G[t] = torch.dot(rewards[t:], gammas)
+
+        return G
 
 class A2C(Reinforce):
     # Implementation of N-step Advantage Actor Critic.
