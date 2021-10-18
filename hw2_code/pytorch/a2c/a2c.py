@@ -17,8 +17,9 @@ class Reinforce(object):
         self.type = "Baseline" if baseline else "Reinforce"
         self.nA = nA
         self.device = device
-        
-        self.policy = NeuralNet(dim_in, dim_out, torch.nn.LogSoftmax(dim = 0))
+        self.dim_in = dim_in
+        self.dim_out = dim_out
+        self.policy = NeuralNet(self.dim_in, self.dim_out, torch.nn.LogSoftmax(dim = 0))
         self.policy.to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         # logger.debug("optimizer of %s ==> \n %s", self.type + " Policy", str(self.optimizer))
@@ -39,7 +40,7 @@ class Reinforce(object):
         state = env.reset()
         
         # init states, actions, rewards as tensor
-        actions = torch.zeros((200), dtype = torch.uint8, device = self.device)
+        actions = torch.zeros((200), dtype = torch.long, device = self.device)
         rewards = torch.zeros((200), device = self.device)
         states = torch.zeros((200, batch, 4), device = self.device)
         policy_outputs = torch.zeros((200, batch, 2), device = self.device)
@@ -67,11 +68,15 @@ class Reinforce(object):
 
         env.close()
         T = torch.count_nonzero(rewards) 
-        return states[:T, :, :], actions[:T], torch.flatten(rewards[torch.nonzero(rewards)]),policy_outputs[:T, :, :]
+        actions = torch.from_numpy(
+                                   np.array([np.copy(actions[t].numpy()) for j in range(batch) for t in range(T)])
+                                  ).long().reshape((T, batch)).to(self.device)
+        policy_outputs = torch.reshape(policy_outputs[:T, :, :], (T, self.dim_out, batch))
+        return states[:T, :, :], actions, torch.flatten(rewards[torch.nonzero(rewards)]), policy_outputs
 
     # TODO perform this action in one loop
-    # Calculate G_t 
     def naiveGt(self, gamma, T, G, rewards):
+        # Calculate G_t 
         for t in range(T):
             
             gammas = torch.tensor([pow(gamma, k - t) for k in range(t, T)], device = self.device)
@@ -80,34 +85,27 @@ class Reinforce(object):
 
         return G
 
-    # TODO construct loss (Use NLLLoss)
-    def loss(self, outputs):
-        for t in range(outputs.size()):
-            pass
-        return 
-
     # TODO debug and check everything here (too slow?)
-    def update_policy(self, actions, outputs):
+    def update_policy(self, policy_outputs, actions, G, T):
                   
-        loss_train = self.loss(outputs, actions)
+        loss = Reinforce_Loss() 
+        loss_train = loss(policy_outputs, actions, G, T) 
 
-        self.optimizer.zero_grad()
-        loss_train.backward() 
-        self.optimizer.step()
+        # self.optimizer.zero_grad()
+        # loss_train.backward() 
+        # self.optimizer.step()
+        return loss_train
 
     def train(self, env, batch=1, gamma=0.99, n=10):
 
         states, actions, rewards, policy_outputs = self.generate_episode(env, batch)
-        #logger.debug("actions ==> %s\n, policy_outputs ==> %s", str(actions), str(policy_outputs))
+        #logger.debug("Input shape ==> %s \n Target shape ==> %s", str(policy_outputs.shape), str(actions.shape))
 
         # What happens in final state? / Does it need special consideration? 
         T = len(rewards)
         G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards)
-
-        loss = Reinforce_Loss() 
-        #self.update_policy(states, actions, policy_outputs)
-        logger.debug("Input shape: %s", str(policy_outputs.shape))
-        return loss(policy_outputs, actions)
+        loss = self.update_policy(policy_outputs, actions, G, T)
+        return loss
 
 
 class A2C(Reinforce):

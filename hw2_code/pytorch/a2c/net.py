@@ -3,10 +3,12 @@ import logging
 import torch.nn.functional as F
 logger = logging.getLogger(__name__)
 
-# TODO finish this function
+# Computes Loss for REINFORCE (Allows batching)
+# Can we do something other than mean for batching case?
 class Reinforce_Loss(torch.nn.NLLLoss):
-    def forward(self, input, target):
-        return F.nll_loss(input, target, reduction='none')
+    def forward(self, input, target, G, T):
+        nll_result = F.nll_loss(input, target, reduction='none')
+        return torch.mean(torch.matmul(G, nll_result) / T)
 
 # TODO Consider ignoring output_activation, and using L = torch.nn.CrossEntropyLoss
 class NeuralNet(torch.nn.Module):

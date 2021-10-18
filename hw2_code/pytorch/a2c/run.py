@@ -83,7 +83,7 @@ def main_a2c(args):
         # Insert code from handout.py below 
         for m in range(5):
             loss_train = Reinforce_net.train(env, batch=1, gamma=gamma)
-            logger.debug('loss_train ===> \n %s', str(loss_train))
+            #logger.debug('G times NLL ===> %s', str(loss_train))
 
 
 
