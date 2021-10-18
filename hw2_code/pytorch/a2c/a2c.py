@@ -13,13 +13,12 @@ logger = logging.getLogger(__name__)
 class Reinforce(object):
     # Implementation of REINFORCE 
 
-    def __init__(self, nA, device, lr, baseline=False):
+    def __init__(self, nA, device, lr, dim_in, dim_out, baseline=False):
         self.type = "Baseline" if baseline else "Reinforce"
         self.nA = nA
         self.device = device
         
-        # TODO Should we batch inputs, i.e. input is (B x 4)?
-        self.policy = NeuralNet(4, 2, torch.nn.LogSoftmax(dim=1))
+        self.policy = NeuralNet(dim_in, dim_out, torch.nn.LogSoftmax(dim = 0))
         self.policy.to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         # logger.debug("optimizer of %s ==> \n %s", self.type + " Policy", str(self.optimizer))
@@ -29,7 +28,7 @@ class Reinforce(object):
         # TODO: Compute Accumulative trajectory reward(set a trajectory length threshold if you want)
         pass
 
-    def generate_episode(self, env, render=False):
+    def generate_episode(self, env, batch = 1, render=False):
         # Generates an episode by executing the current policy in the given env.
         # Returns:
         # - a list of states, indexed by time step
@@ -41,23 +40,33 @@ class Reinforce(object):
         
         # init states, actions, rewards as tensor
         actions, rewards = torch.zeros((2, 200), device = self.device)
-        states = torch.zeros((200, 4), device = self.device)
+        states = torch.zeros((200, batch, 4), device = self.device)
+        policy_outputs = torch.zeros((200, batch, 2), device = self.device)
         
         done = False
         t = 0
 
         while not done:
 
-            ## TODO How would batching affect this call?
-            action = torch.argmax(self.policy(torch.from_numpy(state).float().to(self.device)))
+
+            pi_a = self.policy(torch.from_numpy(state).float().to(self.device))
+            action = int(torch.argmax(pi_a))
             new_state, reward, done, info = env.step(action)
-            states[t], actions[t], rewards[t] = torch.from_numpy(new_state).float().to(self.device), action, reward
+
+            ## Potential slowdown here? 
+            state_batch = torch.from_numpy(
+                                           np.array(
+                                                   [np.copy(new_state) for i in range(batch)]
+                                                   )
+                                          ).float().to(self.device)
+
+            states[t], actions[t], rewards[t], policy_outputs[t] = state_batch, action, reward, pi_a
             state = new_state
             t += 1
 
         env.close()
         T = torch.count_nonzero(rewards) 
-        return states[:T, :], actions[:T], torch.flatten(rewards[torch.nonzero(rewards)])
+        return states[:T, :, :], actions[:T], torch.flatten(rewards[torch.nonzero(rewards)]),policy_outputs[:T, :, :]
 
     # TODO perform this action in one loop
     # Calculate G_t 
@@ -77,24 +86,24 @@ class Reinforce(object):
         return 
 
     # TODO debug and check everything here (too slow?)
-    def update_policy(self, states, actions):
+    def update_policy(self, states, actions, outputs):
                   
-        outputs = [self.policy(state) for state in states]
         loss_train = self.loss(outputs, actions)
 
         self.optimizer.zero_grad()
         loss_train.backward() 
         self.optimizer.step()
 
-    def train(self, env, gamma=0.99, n=10):
-        states, actions, rewards = self.generate_episode(env)
+    def train(self, env, batch=1, gamma=0.99, n=10):
 
-        logger.debug("states ==> %s\n, actions %s\n, rewards %s\n", str(states), str(actions), str(rewards))
+        states, actions, rewards, policy_outputs = self.generate_episode(env, batch)
+        #logger.debug("actions ==> %s\n, policy_outputs ==> %s", str(actions), str(policy_outputs))
+
         # What happens in final state? / Does it need special consideration? 
         T = len(rewards)
         G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards)
 
-        # self.update_policy(states, actions)
+        self.update_policy(states, actions, policy_outputs)
 
         return 
 

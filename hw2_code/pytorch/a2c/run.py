@@ -78,15 +78,12 @@ def main_a2c(args):
     for i in tqdm.tqdm(range(num_seeds)):
         reward_means = []
 
-        # TODO: Review below output to make sure G_t is computed correctly 
-
-        Reinforce_net = Reinforce(nA, device, lr)
-        
-        # Uncomment train function below to test
-        Reinforce_net.train(env, gamma=gamma)
+        Reinforce_net = Reinforce(nA, device, lr, 4, 2)
         
         # logger.debug('Final Contents of G = \n %s', str(G))
         # Insert code from handout.py below 
+        for m in range(5):
+            Reinforce_net.train(env, batch=3, gamma=gamma)
         
 
 
