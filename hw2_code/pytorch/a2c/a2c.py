@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import torch
 import torch.optim as optim
-from net import NeuralNet
+from net import NeuralNet, Reinforce_Loss
 from math import pow
 # (uncomment below in AWS) 
 from torchinfo import summary
@@ -39,7 +39,8 @@ class Reinforce(object):
         state = env.reset()
         
         # init states, actions, rewards as tensor
-        actions, rewards = torch.zeros((2, 200), device = self.device)
+        actions = torch.zeros((200), dtype = torch.uint8, device = self.device)
+        rewards = torch.zeros((200), device = self.device)
         states = torch.zeros((200, batch, 4), device = self.device)
         policy_outputs = torch.zeros((200, batch, 2), device = self.device)
         
@@ -86,7 +87,7 @@ class Reinforce(object):
         return 
 
     # TODO debug and check everything here (too slow?)
-    def update_policy(self, states, actions, outputs):
+    def update_policy(self, actions, outputs):
                   
         loss_train = self.loss(outputs, actions)
 
@@ -103,9 +104,10 @@ class Reinforce(object):
         T = len(rewards)
         G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards)
 
-        self.update_policy(states, actions, policy_outputs)
-
-        return 
+        loss = Reinforce_Loss() 
+        #self.update_policy(states, actions, policy_outputs)
+        logger.debug("Input shape: %s", str(policy_outputs.shape))
+        return loss(policy_outputs, actions)
 
 
 class A2C(Reinforce):

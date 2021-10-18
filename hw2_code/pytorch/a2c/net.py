@@ -1,8 +1,14 @@
 import torch
 import logging
+import torch.nn.functional as F
 logger = logging.getLogger(__name__)
 
+# TODO finish this function
+class Reinforce_Loss(torch.nn.NLLLoss):
+    def forward(self, input, target):
+        return F.nll_loss(input, target, reduction='none')
 
+# TODO Consider ignoring output_activation, and using L = torch.nn.CrossEntropyLoss
 class NeuralNet(torch.nn.Module):
     def __init__(self, input_size, output_size, activation, layers=[32,32,16]):
         super().__init__()

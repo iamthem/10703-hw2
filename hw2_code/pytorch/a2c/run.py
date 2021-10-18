@@ -80,11 +80,10 @@ def main_a2c(args):
 
         Reinforce_net = Reinforce(nA, device, lr, 4, 2)
         
-        # logger.debug('Final Contents of G = \n %s', str(G))
         # Insert code from handout.py below 
         for m in range(5):
-            Reinforce_net.train(env, batch=3, gamma=gamma)
-        
+            loss_train = Reinforce_net.train(env, batch=1, gamma=gamma)
+            logger.debug('loss_train ===> \n %s', str(loss_train))
 
 
 
