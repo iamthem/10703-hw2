@@ -65,7 +65,7 @@ def main_a2c(args):
     nA = env.action_space.n
 
     # Plot average performance of 5 trials
-    num_seeds = 5
+    num_seeds = 1
     frozen_pi_per_trial = num_episodes//100
     res = np.zeros((num_seeds, frozen_pi_per_trial))
 
@@ -81,9 +81,20 @@ def main_a2c(args):
         Reinforce_net = Reinforce(nA, device, lr, 4, 2)
         
         # Insert code from handout.py below 
-        for m in range(5):
-            loss_train = Reinforce_net.train(env, batch=1, gamma=gamma)
+        for m in tqdm.tqdm(range(1000)):
+            Reinforce_net.train(env, batch=100, gamma=gamma)
             #logger.debug('G times NLL ===> %s', str(loss_train))
+            if m % 100 == 0:
+                G = np.zeros(10)
+                g = Reinforce_net.evaluate_policy(env)
+
+                for k in range(5):
+                    g = Reinforce_net.evaluate_policy(env)
+                    G[k] = g
+
+                reward_mean = G.mean()
+                reward_sd = G.std()
+                logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
 
 
 

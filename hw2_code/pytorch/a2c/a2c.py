@@ -20,16 +20,22 @@ class Reinforce(object):
         self.dim_in = dim_in
         self.dim_out = dim_out
         self.policy = NeuralNet(self.dim_in, self.dim_out, torch.nn.LogSoftmax(dim = 0))
+        self.loss = Reinforce_Loss() 
         self.policy.to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         # logger.debug("optimizer of %s ==> \n %s", self.type + " Policy", str(self.optimizer))
 
 
-    def evaluate_policy(self, env):
-        # TODO: Compute Accumulative trajectory reward(set a trajectory length threshold if you want)
-        pass
+    def evaluate_policy(self, env, batch = 1):
+        # TODO: try different params to see if network improves performance 
 
-    def generate_episode(self, env, batch = 1, render=False):
+        states, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
+        # undiscounted return ==> gamma = 1 
+        G = self.naiveGt(0.99, T, torch.zeros((T), device = self.device), rewards)
+        logger.debug("Loss value ==> %s", str(self.loss(policy_outputs, actions, G, T)))
+        return torch.sum(rewards)
+
+    def generate_episode(self, env, batch = 1, sampling = False, render=False):
         # Generates an episode by executing the current policy in the given env.
         # Returns:
         # - a list of states, indexed by time step
@@ -52,7 +58,13 @@ class Reinforce(object):
 
 
             pi_a = self.policy(torch.from_numpy(state).float().to(self.device))
-            action = int(torch.argmax(pi_a))
+            if sampling:
+                options = np.array([0,1], dtype = np.byte)
+                p = np.exp(pi_a.detach().numpy())
+                action = int(np.random.choice(options, size = 1, p = p))
+            else: 
+                action = int(torch.argmax(pi_a))
+
             new_state, reward, done, info = env.step(action)
 
             ## Potential slowdown here? 
@@ -72,7 +84,7 @@ class Reinforce(object):
                                    np.array([np.copy(actions[t].numpy()) for j in range(batch) for t in range(T)])
                                   ).long().reshape((T, batch)).to(self.device)
         policy_outputs = torch.reshape(policy_outputs[:T, :, :], (T, self.dim_out, batch))
-        return states[:T, :, :], actions, torch.flatten(rewards[torch.nonzero(rewards)]), policy_outputs
+        return states[:T, :, :], actions, torch.flatten(rewards[torch.nonzero(rewards)]), policy_outputs, T
 
     # TODO perform this action in one loop
     def naiveGt(self, gamma, T, G, rewards):
@@ -88,24 +100,21 @@ class Reinforce(object):
     # TODO debug and check everything here (too slow?)
     def update_policy(self, policy_outputs, actions, G, T):
                   
-        loss = Reinforce_Loss() 
-        loss_train = loss(policy_outputs, actions, G, T) 
-
-        # self.optimizer.zero_grad()
-        # loss_train.backward() 
-        # self.optimizer.step()
-        return loss_train
+        loss_train = self.loss(policy_outputs, actions, G, T) 
+        self.optimizer.zero_grad()
+        loss_train.backward() 
+        self.optimizer.step()
+        return 
 
     def train(self, env, batch=1, gamma=0.99, n=10):
 
-        states, actions, rewards, policy_outputs = self.generate_episode(env, batch)
+        states, actions, rewards, policy_outputs, T = self.generate_episode(env, batch)
         #logger.debug("Input shape ==> %s \n Target shape ==> %s", str(policy_outputs.shape), str(actions.shape))
 
         # What happens in final state? / Does it need special consideration? 
-        T = len(rewards)
         G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards)
-        loss = self.update_policy(policy_outputs, actions, G, T)
-        return loss
+        self.update_policy(policy_outputs, actions, G, T)
+        return 
 
 
 class A2C(Reinforce):
