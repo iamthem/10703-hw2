@@ -23,6 +23,7 @@ class NeuralNet(torch.nn.Module):
         torch.nn.init.xavier_normal_(self.linear3.weight)
         torch.nn.init.xavier_normal_(self.output_layer.weight)
 
+    # TODO Test forward computation
     def forward(self, inputs):
         x = self.activation1(self.linear1(inputs))
         x = self.activation2(self.linear2(x))

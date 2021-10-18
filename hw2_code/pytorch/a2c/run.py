@@ -80,8 +80,11 @@ def main_a2c(args):
 
         # TODO: Review below output to make sure G_t is computed correctly 
 
-        Reinforce_net = Reinforce(nA, device)
-        G = Reinforce_net.train(env, gamma=gamma)
+        Reinforce_net = Reinforce(nA, device, lr)
+        
+        # Uncomment train function below to test
+        Reinforce_net.train(env, gamma=gamma)
+        
         # logger.debug('Final Contents of G = \n %s', str(G))
         # Insert code from handout.py below 
         
