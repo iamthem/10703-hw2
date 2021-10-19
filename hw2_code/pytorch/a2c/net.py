@@ -6,9 +6,14 @@ logger = logging.getLogger(__name__)
 # Computes Loss for REINFORCE (Allows batching)
 # Can we do something other than mean for batching case?
 class Reinforce_Loss(torch.nn.NLLLoss):
-    def forward(self, input, target, G, T):
-        nll_result = F.nll_loss(input, target, reduction='none')
-        return torch.mean(torch.matmul(G, nll_result) / T)
+    def forward(self, input, target, G, T, debug = False):
+        if not debug:
+            nll_result = F.nll_loss(input, target, reduction='none')
+            return torch.matmul(torch.div(G, T), nll_result).max()
+        else:
+            nll_result = F.nll_loss(input, target, reduction='none')
+            return torch.matmul(G, nll_result) / T
+
 
 # TODO Consider ignoring output_activation, and using L = torch.nn.CrossEntropyLoss
 class NeuralNet(torch.nn.Module):

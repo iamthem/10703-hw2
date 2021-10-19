@@ -32,8 +32,9 @@ class Reinforce(object):
         states, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
         # undiscounted return ==> gamma = 1 
         G = self.naiveGt(0.99, T, torch.zeros((T), device = self.device), rewards)
-        logger.debug("Loss value ==> %s", str(self.loss(policy_outputs, actions, G, T)))
-        return torch.sum(rewards)
+        loss = self.loss(policy_outputs, actions, G, T, debug = False)
+
+        return torch.sum(rewards), loss 
 
     def generate_episode(self, env, batch = 1, sampling = False, render=False):
         # Generates an episode by executing the current policy in the given env.

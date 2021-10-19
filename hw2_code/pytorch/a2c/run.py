@@ -81,20 +81,23 @@ def main_a2c(args):
         Reinforce_net = Reinforce(nA, device, lr, 4, 2)
         
         # Insert code from handout.py below 
-        for m in tqdm.tqdm(range(1000)):
-            Reinforce_net.train(env, batch=100, gamma=gamma)
+        for m in tqdm.tqdm(range(2000)):
+            Reinforce_net.train(env, batch=10, gamma=gamma)
             #logger.debug('G times NLL ===> %s', str(loss_train))
-            if m % 100 == 0:
+            if m % 200 == 0:
                 G = np.zeros(10)
-                g = Reinforce_net.evaluate_policy(env)
+                Loss = np.zeros(10)  
 
-                for k in range(5):
-                    g = Reinforce_net.evaluate_policy(env)
+                for k in range(10):
+                    g, l = Reinforce_net.evaluate_policy(env)
                     G[k] = g
+                    Loss[k] = l
 
                 reward_mean = G.mean()
                 reward_sd = G.std()
-                logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
+                Loss_mean = Loss.mean()
+                Loss_sd = Loss.std()
+                logger.debug("Episode {0} ==> Mean Reward = {1}, sd = {2}. Mean Loss = {3}, sd = {4}".format(m, reward_mean, reward_sd, Loss_mean, Loss_sd))
 
 
 
