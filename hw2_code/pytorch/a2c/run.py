@@ -127,7 +127,7 @@ def main_a2c(args):
                 hists(Loss, Loss_mean, G, reward_mean, m, reward_sd, Loss_sd, ignore = True)
                 totals = zip(states, actions.tolist())
 
-                logger.debug("outputs (%s) %s\n totals => %s, \nloss_mean %f\n average T ==> %s", str(policy_outputs.shape), str(policy_outputs), str(list(totals)), Loss_mean, str(shapes.mean()))
+                logger.debug("outputs (%s) %s\n actions => %s, \nloss_mean %f\n average T ==> %s", str(policy_outputs.shape), str(policy_outputs), str(actions), Loss_mean, str(shapes.mean()))
 
 
 
