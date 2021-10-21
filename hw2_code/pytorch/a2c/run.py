@@ -8,8 +8,7 @@ os.environ['OMP_NUM_THREADS'] = '1'
 
 import gym
 
-from a2c import Reinforce, A2C
-from net import NeuralNet
+from a2c import Reinforce
 
 import numpy as np
 import matplotlib
@@ -46,6 +45,26 @@ def parse_a2c_arguments():
 
     return parser.parse_args()
 
+def hists(Loss, Loss_mean, G, G_mean, m, reward_sd, Loss_sd, ignore = False):
+    if ignore: 
+        return
+
+    size = 8
+    f = "Episode_" + str(m)
+    plt.rc('axes', labelsize=size)    # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=size)    # fontsize of the tick labels
+    plt.rc('ytick', labelsize=size)    # fontsize of the tick labels
+    fig, axs = plt.subplots(2)
+    fig.suptitle(f)
+    axs[0].hist(G, 20)
+    axs[0].vlines(G_mean, 0, 30)
+    axs[0].set_title("Rewards Histogram. \\mu = " + str(round(G_mean, 3)) + " sd = " + str(round(reward_sd, 3)), fontsize = size)
+    axs[1].hist(Loss, 20)
+    axs[1].vlines(Loss_mean, 0, 30)
+    axs[1].set_title("Loss Histogram. \\mu = " + str(round(Loss_mean, 3)) + " sd = " + str(round(Loss_sd, 3)), fontsize = size)
+    plt.savefig("/home/junaikin/Notes/AI+ML/10703/hw2/hw2_code/pytorch/a2c/.plots/" + f)
+    plt.clf()
+    return
 
 def main_a2c(args):
 
@@ -55,7 +74,7 @@ def main_a2c(args):
 
 
     num_episodes = args.num_episodes
-    lr = args.lr
+    lr = 5e-5
     baseline_lr = args.baseline_lr
     critic_lr = args.critic_lr
     # render = args.render
@@ -63,6 +82,7 @@ def main_a2c(args):
     # Create the environment.
     env = gym.make(env_name)
     nA = env.action_space.n
+    nS = env.observation_space.shape[0]
 
     # Plot average performance of 5 trials
     num_seeds = 1
@@ -70,34 +90,44 @@ def main_a2c(args):
     res = np.zeros((num_seeds, frozen_pi_per_trial))
 
     gamma = 0.99
+    batch = 1 
+    test_episodes = 10
 
     ## defaults above this line  
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     for i in tqdm.tqdm(range(num_seeds)):
-        reward_means = []
+        #reward_means = []
 
-        Reinforce_net = Reinforce(nA, device, lr, 4, 2)
+        Reinforce_net = Reinforce(nA, device, lr, nS)
         
         # Insert code from handout.py below 
-        for m in tqdm.tqdm(range(2000)):
-            Reinforce_net.train(env, batch=10, gamma=gamma)
-            #logger.debug('G times NLL ===> %s', str(loss_train))
-            if m % 200 == 0:
-                G = np.zeros(10)
-                Loss = np.zeros(10)  
+        for m in tqdm.tqdm(range(500)):
+            Reinforce_net.train(env, batch, gamma=gamma)
+            states, actions, rewards, policy_outputs, T = Reinforce_net.generate_episode(env, batch, sampling = False, render=False)
+            if m % 100 == 0:
+                G = np.zeros(test_episodes)
+                Loss = np.zeros(test_episodes)  
+                shapes = np.zeros(test_episodes)   
 
-                for k in range(10):
-                    g, l = Reinforce_net.evaluate_policy(env)
+                for k in range(test_episodes):
+                    g, l, actions, states, policy_outputs = Reinforce_net.evaluate_policy(env, batch)
+                 # diffs = [round(float(G[i] - G[i + 1]), 4) for i in range(1, len(G) - 1)]
+                 # logger.debug("G.shape ==> %s\n lenght of G_diffs = %d, \tG_diffs ==> %s", 
+                 #              str(G.shape), len(diffs), str(diffs))
                     G[k] = g
                     Loss[k] = l
+                    shapes[k] = actions.shape[0]
 
                 reward_mean = G.mean()
                 reward_sd = G.std()
                 Loss_mean = Loss.mean()
-                Loss_sd = Loss.std()
-                logger.debug("Episode {0} ==> Mean Reward = {1}, sd = {2}. Mean Loss = {3}, sd = {4}".format(m, reward_mean, reward_sd, Loss_mean, Loss_sd))
+                Loss_sd = G.std()
+                hists(Loss, Loss_mean, G, reward_mean, m, reward_sd, Loss_sd, ignore = True)
+                totals = zip(states, actions.tolist())
+
+                logger.debug("outputs (%s) %s\n totals => %s, \nloss_mean %f\n average T ==> %s", str(policy_outputs.shape), str(policy_outputs), str(list(totals)), Loss_mean, str(shapes.mean()))
 
 
 
