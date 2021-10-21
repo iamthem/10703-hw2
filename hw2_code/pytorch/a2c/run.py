@@ -134,7 +134,7 @@ def main_a2c(args):
     res = np.zeros((num_seeds, frozen_pi_per_trial))
 
     gamma = 0.99
-    batch = 10 
+    batch = 3 
     test_episodes = 20
     question = "Baseline"
 
@@ -146,7 +146,7 @@ def main_a2c(args):
         if question == "Reinforce":
             reward_means = Reinforce_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes)
         else:
-            reward_means = Baseline_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes, baseline_lr)
+            reward_means = Baseline_Loop(nA, device, lr, nS, 200, env, batch, gamma, test_episodes, baseline_lr)
 
         res[i] = np.array(reward_means)
     ks = np.arange(frozen_pi_per_trial)*100
