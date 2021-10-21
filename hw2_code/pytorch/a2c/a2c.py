@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import torch
 import torch.optim as optim
-from net import NeuralNet, Reinforce_Loss
+from net import NeuralNet, Reinforce_Loss, NeuralNetSmall
 from math import pow
 # (uncomment below in AWS) 
 # from torchinfo import summary
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class Reinforce(object):
     # Implementation of REINFORCE 
 
-    def __init__(self, nA, device, lr, nS, baseline=False):
+    def __init__(self, nA, device, lr, nS, baseline=False, baseline_lr = 0.0):
         self.type = "Baseline" if baseline else "Reinforce"
         self.nA = nA
         self.nS = nS
@@ -19,13 +19,21 @@ class Reinforce(object):
         self.policy = NeuralNet(nS, nA, torch.nn.LogSoftmax())
         self.policy.to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
-        # logger.debug("optimizer of %s ==> \n %s", self.type + " Policy", str(self.optimizer))
 
+        if baseline:
+            layers = [32,32,16]
+            self.baseline = NeuralNetSmall(nS, 1, torch.nn.Linear(layers[2], 1))
+            self.baseline.to(self.device)
+            self.optimizer_base = optim.Adam(self.baseline.parameters(), lr = baseline_lr)
+            self.loss_base = torch.nn.MSELoss()
+
+        else:
+            self.baseline = lambda state: 0 
 
     def evaluate_policy(self, env, batch = 1):
         # TODO: try different params to see if network improves performance 
 
-        _, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
+        _, actions, rewards, policy_outputs, T, base_out = self.generate_episode(env, batch, sampling = True)
         
         # G = self.naiveGt(0.99, T, torch.zeros(T, device = self.device), rewards)
         # W = self.getW(actions)
@@ -35,7 +43,7 @@ class Reinforce(object):
         # undiscounted return ==> gamma = 1 
         return torch.sum(rewards)
 
-    def generate_episode(self, env, batch = 1, sampling = False, render=False):
+    def generate_episode(self, env, batch = 1, sampling = False, render=False, baseline = False):
         # Generates an episode by executing the current policy in the given env.
         # Returns:
         # - a list of states, indexed by time step
@@ -53,6 +61,7 @@ class Reinforce(object):
         rewards = torch.zeros((200), device = self.device)
         states = torch.zeros((200, batch, self.nS), device = self.device)
         policy_outputs = torch.zeros((200, batch, self.nA), device = self.device)
+        baseline_outputs = torch.zeros((200), device = self.device)
         
         done = False
         t = 0
@@ -64,6 +73,7 @@ class Reinforce(object):
         while not done:
 
             pi_a = self.policy(state)
+            b_out = self.baseline(state[0])
 
             if sampling:
                 p = torch.exp(pi_a[0])
@@ -78,13 +88,13 @@ class Reinforce(object):
             del new_state
             new_state = torch.clone(torch.from_numpy(new_state_np).float().to(self.device)).repeat(batch).reshape((batch, self.nS))
 
-            states[t], actions[t], rewards[t], policy_outputs[t] = new_state, action, reward, pi_a
+            states[t], actions[t], rewards[t], policy_outputs[t], baseline_outputs[t] = new_state, action, reward, pi_a, b_out
             state = new_state
             t += 1
 
         env.close()
         T = t 
-        return states[:T, :, :], actions[:T], torch.flatten(rewards[:T]), policy_outputs[:T, 0, :], T 
+        return states[:T, :, :], actions[:T], torch.flatten(rewards[:T]), policy_outputs[:T, 0, :], T, baseline_outputs[:T]
 
     def naiveGt(self, gamma, T, G, rewards):
         # Calculate G_t 
@@ -106,29 +116,41 @@ class Reinforce(object):
         W = np.array([C_max / class_sample_count[0], C_max / class_sample_count[1]])
         return torch.from_numpy(W).float().to(self.device)
 
-    def update_policy(self, policy_outputs, actions, G, T):
+    def update_policy(self, policy_outputs, actions, G, T, base_out):
                   
         W = self.getW(actions)
+        loss = Reinforce_Loss(weight = W)
 
         if W is None: 
             return
 
-        loss = Reinforce_Loss(weight = W)
-        loss_train = loss(policy_outputs, actions, G, T) 
+        if self.type == "Baseline":
 
+            with torch.no_grad():
+                G = torch.sub(G, base_out)  
+
+            loss_b = self.loss_base(base_out, G)
+            self.optimizer_base.zero_grad()
+            loss_b.backward() 
+            self.optimizer_base.step()
+
+        loss_train = loss(policy_outputs, actions, G, T) 
         self.optimizer.zero_grad()
         loss_train.backward() 
         self.optimizer.step()
+
+
         return 
 
     def train(self, env, batch=1, gamma=0.99, n=10):
 
-        _, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
-        #logger.debug("Input shape ==> %s \n Target shape ==> %s", str(policy_outputs.shape), str(actions.shape))
+        _, actions, rewards, policy_outputs, T, base_out = self.generate_episode(env, batch, sampling = True)
 
-        # What happens in final state? / Does it need special consideration? 
-        G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards)
-        self.update_policy(policy_outputs, actions, G, T)
+        with torch.no_grad():
+            G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards)
+
+        self.update_policy(policy_outputs, actions, G, T, base_out)
+
         return 
 
 

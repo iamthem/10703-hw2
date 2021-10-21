@@ -66,6 +66,50 @@ def hists(Loss, Loss_mean, G, G_mean, m, reward_sd, Loss_sd, ignore = False):
     plt.clf()
     return
 
+def Reinforce_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes):
+    reward_means = []
+
+    Reinforce_net = Reinforce(nA, device, lr, nS)
+        
+    # Insert code from handout.py below 
+    for m in range(num_episodes):
+        Reinforce_net.train(env, batch, gamma=gamma)
+        if m % 100 == 0:
+            logger.debug("Episode: {}".format(m))
+            G = np.zeros(test_episodes)
+            for k in range(test_episodes):
+                g = Reinforce_net.evaluate_policy(env, batch)
+                G[k] = g
+
+            reward_mean = G.mean()
+            reward_sd = G.std()
+            logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
+            reward_means.append(reward_mean)
+
+    return reward_means
+
+def Baseline_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes, baseline_lr):
+    reward_means = []
+
+    Reinforce_net = Reinforce(nA, device, lr, nS, baseline = True, baseline_lr = baseline_lr)
+        
+    # Insert code from handout.py below 
+    for m in range(num_episodes):
+        Reinforce_net.train(env, batch, gamma=gamma)
+        if m % 100 == 0:
+            logger.debug("Episode: {}".format(m))
+            G = np.zeros(test_episodes)
+            for k in range(test_episodes):
+                g = Reinforce_net.evaluate_policy(env, batch)
+                G[k] = g
+
+            reward_mean = G.mean()
+            reward_sd = G.std()
+            logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
+            reward_means.append(reward_mean)
+
+    return reward_means
+
 def main_a2c(args):
 
     # Parse command-line arguments.
@@ -92,30 +136,18 @@ def main_a2c(args):
     gamma = 0.99
     batch = 10 
     test_episodes = 20
+    question = "Baseline"
 
     ## defaults above this line  
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     for i in tqdm.tqdm(range(num_seeds)):
-        reward_means = []
+        if question == "Reinforce":
+            reward_means = Reinforce_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes)
+        else:
+            reward_means = Baseline_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes, baseline_lr)
 
-        Reinforce_net = Reinforce(nA, device, lr, nS)
-        
-        # Insert code from handout.py below 
-        for m in range(num_episodes):
-            Reinforce_net.train(env, batch, gamma=gamma)
-            if m % 100 == 0:
-                logger.debug("Episode: {}".format(m))
-                G = np.zeros(test_episodes)
-                for k in range(test_episodes):
-                    g = Reinforce_net.evaluate_policy(env, batch)
-                    G[k] = g
-
-                reward_mean = G.mean()
-                reward_sd = G.std()
-                logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
-                reward_means.append(reward_mean)
         res[i] = np.array(reward_means)
     ks = np.arange(frozen_pi_per_trial)*100
     avs = np.mean(res, axis=0)
