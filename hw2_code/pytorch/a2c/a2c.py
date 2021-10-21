@@ -25,14 +25,14 @@ class Reinforce(object):
     def evaluate_policy(self, env, batch = 1):
         # TODO: try different params to see if network improves performance 
 
-        _, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
+        states, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
         
-        # G = self.naiveGt(0.99, T, torch.zeros(T, device = self.device), rewards)
-        # W = self.getW(actions)
-        # loss = Reinforce_Loss(weight = W) 
-        # loss_eval = loss(policy_outputs, actions, G, T)
-
         # undiscounted return ==> gamma = 1 
+        G = self.naiveGt(0.99, T, torch.zeros(T, device = self.device), rewards)
+        W = self.getW(actions)
+        loss = Reinforce_Loss(weight = W) 
+        loss_eval = loss(policy_outputs, actions, G, T)
+
         return torch.sum(rewards)
 
     def generate_episode(self, env, batch = 1, sampling = False, render=False):
@@ -100,19 +100,12 @@ class Reinforce(object):
         actions = actions.cpu()
         class_sample_count = np.array([len(np.where(actions == a)[0]) for a in np.arange(self.nA)])
         C_max = np.max(class_sample_count) 
-        if C_max == np.sum(class_sample_count): 
-            return None 
-
         W = np.array([C_max / class_sample_count[0], C_max / class_sample_count[1]])
         return torch.from_numpy(W).float().to(self.device)
 
     def update_policy(self, policy_outputs, actions, G, T):
                   
         W = self.getW(actions)
-
-        if W is None: 
-            return
-
         loss = Reinforce_Loss(weight = W)
         loss_train = loss(policy_outputs, actions, G, T) 
 

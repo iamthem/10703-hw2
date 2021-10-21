@@ -90,7 +90,7 @@ def main_a2c(args):
     res = np.zeros((num_seeds, frozen_pi_per_trial))
 
     gamma = 0.99
-    batch = 10 
+    batch = 3 
     test_episodes = 20
 
     ## defaults above this line  
@@ -103,7 +103,7 @@ def main_a2c(args):
         Reinforce_net = Reinforce(nA, device, lr, nS)
         
         # Insert code from handout.py below 
-        for m in range(num_episodes):
+        for m in tqdm.tqdm(range(num_episodes)):
             Reinforce_net.train(env, batch, gamma=gamma)
             if m % 100 == 0:
                 logger.debug("Episode: {}".format(m))
