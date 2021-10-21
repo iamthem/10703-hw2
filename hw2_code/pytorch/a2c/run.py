@@ -74,7 +74,7 @@ def main_a2c(args):
 
 
     num_episodes = args.num_episodes
-    lr = 5e-5
+    lr = args.lr
     baseline_lr = args.baseline_lr
     critic_lr = args.critic_lr
     # render = args.render
@@ -85,50 +85,53 @@ def main_a2c(args):
     nS = env.observation_space.shape[0]
 
     # Plot average performance of 5 trials
-    num_seeds = 1
+    num_seeds = 5
     frozen_pi_per_trial = num_episodes//100
     res = np.zeros((num_seeds, frozen_pi_per_trial))
 
     gamma = 0.99
-    batch = 1 
-    test_episodes = 10
+    batch = 10 
+    test_episodes = 20
 
     ## defaults above this line  
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     for i in tqdm.tqdm(range(num_seeds)):
-        #reward_means = []
+        reward_means = []
 
         Reinforce_net = Reinforce(nA, device, lr, nS)
         
         # Insert code from handout.py below 
-        for m in tqdm.tqdm(range(100)):
+        for m in range(num_episodes):
             Reinforce_net.train(env, batch, gamma=gamma)
-            states, actions, rewards, policy_outputs, T = Reinforce_net.generate_episode(env, batch, sampling = False, render=False)
-            if m % 10 == 0:
+            if m % 100 == 0:
+                logger.debug("Episode: {}".format(m))
                 G = np.zeros(test_episodes)
-                Loss = np.zeros(test_episodes)  
-                Ts = np.zeros(test_episodes)   
-
                 for k in range(test_episodes):
-                    g, l, actions, states, policy_outputs = Reinforce_net.evaluate_policy(env, batch)
-                 # diffs = [round(float(G[i] - G[i + 1]), 4) for i in range(1, len(G) - 1)]
-                 # logger.debug("G.shape ==> %s\n lenght of G_diffs = %d, \tG_diffs ==> %s", 
-                 #              str(G.shape), len(diffs), str(diffs))
+                    g = Reinforce_net.evaluate_policy(env, batch)
                     G[k] = g
-                    Loss[k] = l
-                    Ts[k] = actions.shape[0]
 
                 reward_mean = G.mean()
                 reward_sd = G.std()
-                Loss_mean = Loss.mean()
-                Loss_sd = G.std()
-                hists(Loss, Loss_mean, G, reward_mean, m, reward_sd, Loss_sd, ignore = True)
-                totals = zip(states, actions.tolist())
-                logger.debug("loss_mean %f, average T ==> %s", Loss_mean, str(Ts.mean()))
+                logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
+                reward_means.append(reward_mean)
+        res[i] = np.array(reward_means)
+    ks = np.arange(frozen_pi_per_trial)*100
+    avs = np.mean(res, axis=0)
+    maxs = np.max(res, axis=0)
+    mins = np.min(res, axis=0)
 
+    plt.fill_between(ks, mins, maxs, alpha=0.1)
+    plt.plot(ks, avs, '-o', markersize=1)
 
+    plt.xlabel('Episode', fontsize = 15)
+    plt.ylabel('Return', fontsize = 15)
+    plt.title("Reinforce Learning Curve", fontsize = 24)
+    if not os.path.exists('./plots'):
+        os.mkdir('./plots')
+
+    plt.savefig("./plots/Reinforce_curve.png")
 
 if __name__ == '__main__':
 

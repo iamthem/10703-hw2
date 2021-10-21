@@ -14,28 +14,26 @@ env = gym.make('CartPole-v0')
 nA = env.action_space.n
 nS = env.observation_space.shape[0]
 Reinforce_net = Reinforce(nA, device, lr, nS)
-
-# %%
-class Reinforce_Loss_Debug(torch.nn.NLLLoss):
-    def forward(self, input, target, G, T):
-        nll_result = F.nll_loss(input, target, reduction='none')
-        return torch.div(torch.dot(G, nll_result), T)
+test_episodes = 30
 
 
 # %%
-for m in range(500):
+for m in range(1500):
     Reinforce_net.train(env, batch, gamma=gamma)
-   
-# %%
-rewards, loss_eval, actions, states, probs = Reinforce_net.evaluate_policy(env, batch) 
 
+    if m % 100 == 0:
 
-# %%
-class_sample_count = np.array([len(np.where(actions == t)[0]) for t in np.arange(nA)])
-C_max = np.max(class_sample_count) 
-W = np.array([C_max / class_sample_count[0], C_max / class_sample_count[1]])
+        G = np.zeros(test_episodes)
+        Loss = np.zeros(test_episodes)  
 
-# %%
-loss = Reinforce_Loss(weight = torch.from_numpy(W).float())
-loss(policy_outputs, actions, G, T) 
-#torch.isclose(torch.dot(G, policy_outputs[:,actions]), dot)
+        for k in range(test_episodes):
+            rewards, loss_eval, probs, actions = Reinforce_net.evaluate_policy(env, batch) 
+            G[k] = rewards 
+            Loss[k] = loss_eval
+
+        reward_mean = G.mean()
+        reward_sd = G.std()
+        Loss_mean = Loss.mean()
+        Loss_sd = G.std()
+        print("Reward sd == ", str(reward_sd), "\t Reward \\mu == ", str(reward_mean.mean()))
+
