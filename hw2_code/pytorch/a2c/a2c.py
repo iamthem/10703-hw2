@@ -1,4 +1,4 @@
-#import numpy as np 
+import numpy as np 
 import logging
 import torch
 import torch.optim as optim
@@ -18,7 +18,6 @@ class Reinforce(object):
         self.device = device
         self.policy = NeuralNet(nS, nA, torch.nn.LogSoftmax())
         self.policy.to(self.device)
-        self.loss = Reinforce_Loss() 
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         # logger.debug("optimizer of %s ==> \n %s", self.type + " Policy", str(self.optimizer))
 
@@ -30,9 +29,11 @@ class Reinforce(object):
         
         # undiscounted return ==> gamma = 1 
         G = self.naiveGt(0.99, T, torch.zeros(T, device = self.device), rewards)
-        loss = self.loss(policy_outputs, actions, G, T)
+        W = self.getW(actions)
+        loss = Reinforce_Loss(weight = W) 
+        loss_eval = loss(policy_outputs, actions, G, T)
 
-        return torch.sum(rewards), loss, actions, states, torch.exp(policy_outputs)
+        return torch.sum(rewards), loss_eval, actions, states, torch.exp(policy_outputs)
 
     def generate_episode(self, env, batch = 1, sampling = False, render=False):
         # Generates an episode by executing the current policy in the given env.
@@ -85,7 +86,6 @@ class Reinforce(object):
         T = t 
         return states[:T, :, :], actions[:T], torch.flatten(rewards[:T]), policy_outputs[:T, 0, :], T 
 
-    # TODO perform this action in one loop
     def naiveGt(self, gamma, T, G, rewards):
         # Calculate G_t 
         for t in range(T):
@@ -96,10 +96,18 @@ class Reinforce(object):
 
         return G
 
-    # TODO debug and check everything here (too slow?)
+    def getW(self, actions):
+        class_sample_count = np.array([len(np.where(actions == a)[0]) for a in np.arange(self.nA)])
+        C_max = np.max(class_sample_count) 
+        W = np.array([C_max / class_sample_count[0], C_max / class_sample_count[1]])
+        return torch.from_numpy(W).float().to(self.device)
+
     def update_policy(self, policy_outputs, actions, G, T):
                   
-        loss_train = self.loss(policy_outputs, actions, G, T) 
+        W = self.getW(actions)
+        loss = Reinforce_Loss(weight = W)
+        loss_train = loss(policy_outputs, actions, G, T) 
+
         self.optimizer.zero_grad()
         loss_train.backward() 
         self.optimizer.step()
@@ -107,7 +115,7 @@ class Reinforce(object):
 
     def train(self, env, batch=1, gamma=0.99, n=10):
 
-        _, actions, rewards, policy_outputs, T = self.generate_episode(env, batch)
+        _, actions, rewards, policy_outputs, T = self.generate_episode(env, batch, sampling = True)
         #logger.debug("Input shape ==> %s \n Target shape ==> %s", str(policy_outputs.shape), str(actions.shape))
 
         # What happens in final state? / Does it need special consideration? 

@@ -19,20 +19,23 @@ Reinforce_net = Reinforce(nA, device, lr, nS)
 class Reinforce_Loss_Debug(torch.nn.NLLLoss):
     def forward(self, input, target, G, T):
         nll_result = F.nll_loss(input, target, reduction='none')
-        return torch.div(torch.dot(G, nll_result), T), torch.dot(G, nll_result), nll_result
+        return torch.div(torch.dot(G, nll_result), T)
 
-
-# %%
-states, actions, rewards, policy_outputs, T = Reinforce_net.generate_episode(env, batch, sampling = False, render=False)
-G = Reinforce_net.naiveGt(gamma, T, torch.zeros((T)), rewards)
-actions
 
 # %%
 for m in range(500):
     Reinforce_net.train(env, batch, gamma=gamma)
    
 # %%
-loss = Reinforce_Loss_Debug()
-l, dot, nll = loss(policy_outputs, actions, G, T) 
-l
+rewards, loss_eval, actions, states, probs = Reinforce_net.evaluate_policy(env, batch) 
 
+
+# %%
+class_sample_count = np.array([len(np.where(actions == t)[0]) for t in np.arange(nA)])
+C_max = np.max(class_sample_count) 
+W = np.array([C_max / class_sample_count[0], C_max / class_sample_count[1]])
+
+# %%
+loss = Reinforce_Loss(weight = torch.from_numpy(W).float())
+loss(policy_outputs, actions, G, T) 
+#torch.isclose(torch.dot(G, policy_outputs[:,actions]), dot)
