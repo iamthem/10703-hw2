@@ -103,13 +103,13 @@ def main_a2c(args):
         Reinforce_net = Reinforce(nA, device, lr, nS)
         
         # Insert code from handout.py below 
-        for m in tqdm.tqdm(range(500)):
+        for m in tqdm.tqdm(range(100)):
             Reinforce_net.train(env, batch, gamma=gamma)
             states, actions, rewards, policy_outputs, T = Reinforce_net.generate_episode(env, batch, sampling = False, render=False)
-            if m % 100 == 0:
+            if m % 10 == 0:
                 G = np.zeros(test_episodes)
                 Loss = np.zeros(test_episodes)  
-                shapes = np.zeros(test_episodes)   
+                Ts = np.zeros(test_episodes)   
 
                 for k in range(test_episodes):
                     g, l, actions, states, policy_outputs = Reinforce_net.evaluate_policy(env, batch)
@@ -118,7 +118,7 @@ def main_a2c(args):
                  #              str(G.shape), len(diffs), str(diffs))
                     G[k] = g
                     Loss[k] = l
-                    shapes[k] = actions.shape[0]
+                    Ts[k] = actions.shape[0]
 
                 reward_mean = G.mean()
                 reward_sd = G.std()
@@ -126,8 +126,7 @@ def main_a2c(args):
                 Loss_sd = G.std()
                 hists(Loss, Loss_mean, G, reward_mean, m, reward_sd, Loss_sd, ignore = True)
                 totals = zip(states, actions.tolist())
-
-                logger.debug("outputs (%s) %s\n actions => %s, \nloss_mean %f\n average T ==> %s", str(policy_outputs.shape), str(policy_outputs), str(actions), Loss_mean, str(shapes.mean()))
+                logger.debug("loss_mean %f, average T ==> %s", Loss_mean, str(Ts.mean()))
 
 
 
