@@ -118,10 +118,11 @@ class Reinforce(object):
     def update_policy(self, policy_outputs, actions, G, T, base_out):
                   
         W = self.getW(actions)
-        loss = Reinforce_Loss(weight = W)
 
         if W is None: 
             return
+
+        loss = Reinforce_Loss(weight = W)
 
         if self.type == "Baseline" or self.type == "A2C":
 
@@ -179,35 +180,28 @@ class A2C(Reinforce):
     def evaluate_policy(self, env, batch = 1, n = 1):
 
         states, actions, rewards, policy_outputs, T, base_out = self.generate_episode(env, batch, sampling = True)
-        
-        # G = self.naiveGt(0.99, T, torch.zeros(T, device = self.device), rewards, n, base_out)
-        # W = self.getW(actions)
-        # loss = Reinforce_Loss(weight = W) 
-        # loss_eval = loss(policy_outputs, actions, G, T)
-
         # undiscounted return ==> gamma = 1 
-        return torch.sum(rewards) 
+        return torch.sum(rewards)
 
     def update_policy(self, policy_outputs, actions, G, T, base_out):
                   
         W = self.getW(actions)
-        loss = Reinforce_Loss(weight = W)
 
         # Might be problematic
         if W is None: 
             return
 
-        Adv = torch.sub(G, base_out)  
+        loss = Reinforce_Loss(weight = W)
 
-        loss_train = loss(policy_outputs, actions, Adv, T) 
-        loss_b = self.loss_base(base_out, Adv)
+        loss_train = loss(policy_outputs, actions, torch.sub(G, base_out), T) 
+        loss_b = self.loss_base(base_out, G)
 
         self.optimizer.zero_grad()
-        loss_train.backward(retain_graph=True) 
+        loss_train.backward(retain_graph = True)
         self.optimizer.step()
 
         self.optimizer_base.zero_grad()
-        loss_b.backward() 
+        loss_b.backward(retain_graph = True) 
         self.optimizer_base.step()
 
         return 

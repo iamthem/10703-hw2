@@ -8,7 +8,7 @@ os.environ['OMP_NUM_THREADS'] = '1'
 
 import gym
 
-from a2c import Reinforce
+from a2c import Reinforce, A2C
 
 import numpy as np
 import matplotlib
@@ -110,6 +110,29 @@ def Baseline_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_epis
 
     return reward_means
 
+def A2C_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes, critic_lr = 1e-3, n = 10):
+
+    reward_means = []
+
+    A2C_net = A2C(nA, device, lr, nS, critic_lr, baseline = True)
+        
+    # Insert code from handout.py below 
+    for m in range(num_episodes):
+        A2C_net.train(env, batch, gamma=gamma, n = n)
+        if m % 100 == 0:
+            logger.debug("Episode: {}".format(m))
+            G = np.zeros(test_episodes)
+            for k in range(test_episodes):
+                g = A2C_net.evaluate_policy(env, batch)
+                G[k] = g
+
+            reward_mean = G.mean()
+            reward_sd = G.std()
+            logger.debug("The test reward for episode {0} is {1} with sd of {2}.".format(m, reward_mean, reward_sd))
+            reward_means.append(reward_mean)
+
+    return reward_means
+
 def main_a2c(args):
 
     # Parse command-line arguments.
@@ -120,7 +143,6 @@ def main_a2c(args):
     num_episodes = args.num_episodes
     lr = args.lr
     baseline_lr = args.baseline_lr
-    critic_lr = args.critic_lr
     # render = args.render
 
     # Create the environment.
@@ -131,39 +153,46 @@ def main_a2c(args):
     # Plot average performance of 5 trials
     num_seeds = 5
     frozen_pi_per_trial = num_episodes//100
-    res = np.zeros((num_seeds, frozen_pi_per_trial))
 
     gamma = 0.99
-    batch = 3 
+    batch = 1 
     test_episodes = 20
-    question = "Baseline"
+    question = "A2C"
+    critic_lr = 1e-4 
 
     ## defaults above this line  
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    for i in tqdm.tqdm(range(num_seeds)):
-        if question == "Reinforce":
-            reward_means = Reinforce_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes)
-        else:
-            reward_means = Baseline_Loop(nA, device, lr, nS, 200, env, batch, gamma, test_episodes, baseline_lr)
+    for n in [1,10,100]:
+        res = np.zeros((num_seeds, frozen_pi_per_trial))
 
-        res[i] = np.array(reward_means)
-    ks = np.arange(frozen_pi_per_trial)*100
-    avs = np.mean(res, axis=0)
-    maxs = np.max(res, axis=0)
-    mins = np.min(res, axis=0)
+        for i in tqdm.tqdm(range(num_seeds)):
+            if question == "Reinforce":
+                reward_means = Reinforce_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes)
+            elif question == "Baseline":
+                reward_means = Baseline_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes, baseline_lr)
+            else:
+                reward_means = A2C_Loop(nA, device, lr, nS, num_episodes, env, batch, gamma, test_episodes, critic_lr, n)
 
-    plt.fill_between(ks, mins, maxs, alpha=0.1)
-    plt.plot(ks, avs, '-o', markersize=1)
+            res[i] = np.array(reward_means)
 
-    plt.xlabel('Episode', fontsize = 15)
-    plt.ylabel('Return', fontsize = 15)
-    plt.title("Reinforce Learning Curve", fontsize = 24)
-    if not os.path.exists('./plots'):
-        os.mkdir('./plots')
+        ks = np.arange(frozen_pi_per_trial)*100
+        avs = np.mean(res, axis=0)
+        maxs = np.max(res, axis=0)
+        mins = np.min(res, axis=0)
 
-    plt.savefig("./plots/Reinforce_curve.png")
+        plt.fill_between(ks, mins, maxs, alpha=0.1)
+        plt.plot(ks, avs, '-o', markersize=1)
+
+        plt.xlabel('Episode', fontsize = 15)
+        plt.ylabel('Return', fontsize = 15)
+        title = "A2C Learning Curve n = " + str(n)
+        plt.title(title, fontsize = 20)
+        if not os.path.exists('./plots'):
+            os.mkdir('./plots')
+
+        plt.savefig("./plots/A2C_curve_" + str(n) + ".png")
 
 if __name__ == '__main__':
 

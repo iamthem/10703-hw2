@@ -14,9 +14,9 @@ env = gym.make('CartPole-v0')
 nA = env.action_space.n
 nS = env.observation_space.shape[0]
 test_episodes = 10
-critic_lr = 1e-4
+critic_lr = 1e-3
 baseline = True
-n = 1
+n = 10
 
 # %%
 reload(net)
@@ -33,10 +33,11 @@ for m in range(1000):
 
         for k in range(test_episodes):
 
-            rewards = A2C_net.evaluate_policy(env, batch, n) 
+            rewards, probs, base_out = A2C_net.evaluate_policy(env, batch, n) 
             G[k] = rewards 
 
         reward_mean = G.mean()
         reward_sd = G.std()
 
-        print("rewards \\mu = ", reward_mean, " rewards sd = ", reward_sd)
+        print("rewards \\mu = ", reward_mean, " rewards sd = ", reward_sd, "\nPolicy_outputs", )
+
