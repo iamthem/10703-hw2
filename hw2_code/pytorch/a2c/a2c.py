@@ -31,7 +31,6 @@ class Reinforce(object):
             self.baseline = lambda state: 0 
 
     def evaluate_policy(self, env, batch = 1):
-        # TODO: try different params to see if network improves performance 
 
         _, actions, rewards, policy_outputs, T, base_out = self.generate_episode(env, batch, sampling = True)
         
@@ -124,7 +123,7 @@ class Reinforce(object):
         if W is None: 
             return
 
-        if self.type == "Baseline":
+        if self.type == "Baseline" or self.type == "A2C":
 
             with torch.no_grad():
                 G = torch.sub(G, base_out)  
@@ -154,24 +153,71 @@ class Reinforce(object):
         return 
 
 
-# class A2C(Reinforce):
-#     # Implementation of N-step Advantage Actor Critic.
-#     # This class inherits the Reinforce class, so for example, you can reuse
-#     # generate_episode() here for different methods.
+class A2C(Reinforce):
+    def __init__(self, nA, device, lr, nS, critic_lr, baseline = True):
+        Reinforce.__init__(self, nA, device, lr, nS, baseline, baseline_lr = critic_lr)
+        self.type = "A2C" 
 
-#     def __init__(self, actor, actor_lr, N, nA, critic, critic_lr):
-#         self.type = "A2C" 
-#         logger.debug('Type is ', self.type)
+    def naiveGt(self, gamma, T, G, rewards, n, base_out):
+        # Calculate G_t 
+        for t in range(T):
 
-#         ## arguments unclear (should we prepend self and declare argument above?)
-#         super(A2C, self).__init__(nA)
+            if t + n >= T:
+                gammas = torch.tensor([pow(gamma, k - t) for k in range(t, T)], device = self.device)
+                G[t] = torch.dot(rewards[t:], gammas)
+                
+            elif t + n < T:
+                V_end = base_out[t + n]
+                R_ks = rewards[t : t + n]
+                end_of_range = int(np.min(np.array([t + n, T], np.intc)))
+                gammas = torch.tensor([pow(gamma, k - t) for k in range(t, end_of_range)], device = self.device)
+                assert(gammas.size() ==  R_ks.size())
+                G[t] = torch.dot(R_ks, gammas) + torch.mul(V_end, pow(gamma, n))
 
-#     def evaluate_policy(self, env):
-#         pass
+        return G
 
-#     def generate_episode(self, env, render=False):
-#         # TODO: Call parent class (pretty sure) 
-#         pass
+    def evaluate_policy(self, env, batch = 1, n = 1):
 
-#     def train(self, env, gamma=0.99, n=10):
-#         pass
+        states, actions, rewards, policy_outputs, T, base_out = self.generate_episode(env, batch, sampling = True)
+        
+        # G = self.naiveGt(0.99, T, torch.zeros(T, device = self.device), rewards, n, base_out)
+        # W = self.getW(actions)
+        # loss = Reinforce_Loss(weight = W) 
+        # loss_eval = loss(policy_outputs, actions, G, T)
+
+        # undiscounted return ==> gamma = 1 
+        return torch.sum(rewards) 
+
+    def update_policy(self, policy_outputs, actions, G, T, base_out):
+                  
+        W = self.getW(actions)
+        loss = Reinforce_Loss(weight = W)
+
+        # Might be problematic
+        if W is None: 
+            return
+
+        Adv = torch.sub(G, base_out)  
+
+        loss_train = loss(policy_outputs, actions, Adv, T) 
+        loss_b = self.loss_base(base_out, Adv)
+
+        self.optimizer.zero_grad()
+        loss_train.backward(retain_graph=True) 
+        self.optimizer.step()
+
+        self.optimizer_base.zero_grad()
+        loss_b.backward() 
+        self.optimizer_base.step()
+
+        return 
+
+    def train(self, env, batch=1, gamma=0.99, n=10):
+
+        states, actions, rewards, policy_outputs, T, base_out = self.generate_episode(env, batch, sampling = True)
+
+        G = self.naiveGt(gamma, T, torch.zeros((T), device = self.device), rewards, n, base_out)
+
+        self.update_policy(policy_outputs, actions, G, T, base_out)
+
+        return 
